@@ -27,7 +27,7 @@ const VerifyProof = () => {
      
 
     // Send result to your Express server
-     const server_res =  await fetch('https://f88e-78-172-223-211.ngrok-free.app/health-check', {
+     const server_res =  await fetch('https://perfect-gorilla-unduly.ngrok-free.app/verify-mint', {
       method: 'GET',
       
     });

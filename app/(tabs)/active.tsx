@@ -4,6 +4,7 @@ import { Play, Pause, Square, Camera, MapPin } from 'lucide-react-native';
 import { useState, useEffect, useRef } from 'react';
 import * as Location from 'expo-location';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { Modal, TextInput, Clipboard } from 'react-native';
 
 interface WalkData {
   startTime: number;
@@ -12,7 +13,9 @@ interface WalkData {
   duration: number;
   path: Location.LocationObject[];
   photos: string[];
+  userAddress?: string; // Add this line
 }
+
 
 export default function ActiveScreen() {
   const [isWalking, setIsWalking] = useState(false);
@@ -20,7 +23,10 @@ export default function ActiveScreen() {
   const [currentLocation, setCurrentLocation] = useState<Location.LocationObject | null>(null);
   const [showCamera, setShowCamera] = useState(false);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [showAddressModal, setShowAddressModal] = useState(false);
+  const [starknetAddress, setStarknetAddress] = useState('');
   
+
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
   const walkTimer = useRef<NodeJS.Timeout | null>(null);
 
@@ -76,13 +82,14 @@ export default function ActiveScreen() {
         accuracy: Location.Accuracy.High,
       });
 
-      const newWalkData: WalkData = {
-        startTime: Date.now(),
-        distance: 0,
-        duration: 0,
-        path: [location],
-        photos: [],
-      };
+    const newWalkData: WalkData = {
+  startTime: Date.now(),
+  distance: 0,
+  duration: 0,
+  path: [location],
+  photos: [],
+  userAddress: starknetAddress, // ← Save it in the walk data
+};
 
       setWalkData(newWalkData);
       setCurrentLocation(location);
@@ -137,33 +144,71 @@ export default function ActiveScreen() {
     }
   };
 
-  const stopWalk = () => {
-    if (walkData) {
-      const finalWalkData = {
-        ...walkData,
-        endTime: Date.now(),
-        duration: Date.now() - walkData.startTime,
+const stopWalk = async () => {
+  if (walkData) {
+    const finalWalkData = {
+      ...walkData,
+      endTime: Date.now(),
+      duration: Date.now() - walkData.startTime,
+    };
+    
+    try {
+      // Prepare payload: sending path (latitude & longitude array) + other data this 
+      // only for demonstration, adjust as needed
+    const payload = {
+        startTime: finalWalkData.startTime,
+        endTime: finalWalkData.endTime,
+        duration: finalWalkData.duration,
+        distance: finalWalkData.distance*1000, // Convert to meters
+        userAddress: finalWalkData.userAddress, // ← Send it to the server
+        path: finalWalkData.path.map(loc => ({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+          timestamp: loc.timestamp,
+        })),
+        photos: finalWalkData.photos,
       };
+
       
-      // Here you would save the walk data to local storage or send to backend
-      console.log('Walk completed:', finalWalkData);
+      // Replace with your server API endpoint
+      const response = await fetch('https://perfect-gorilla-unduly.ngrok-free.app/verify-mint', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Add auth headers if needed here, e.g.
+          // 'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
       
+      if (!response.ok) {
+        throw new Error('Failed to send walk data');
+      }
+
       Alert.alert(
         'Walk Completed!',
         `Distance: ${finalWalkData.distance.toFixed(2)} km\nDuration: ${Math.floor(finalWalkData.duration / 60000)} minutes`,
         [{ text: 'OK' }]
       );
+
+      console.log('Walk data sent successfully');
+      
+    } catch (error) {
+      console.error('Error sending walk data:', error);
+      Alert.alert('Error', 'Failed to send walk data to server');
     }
-    
-    setWalkData(null);
-    setIsWalking(false);
-    if (locationSubscription.current) {
-      locationSubscription.current.remove();
-    }
-    if (walkTimer.current) {
-      clearInterval(walkTimer.current);
-    }
-  };
+  }
+  
+  setWalkData(null);
+  setIsWalking(false);
+  if (locationSubscription.current) {
+    locationSubscription.current.remove();
+  }
+  if (walkTimer.current) {
+    clearInterval(walkTimer.current);
+  }
+};
+
 
   const takePhoto = async () => {
     if (!cameraPermission?.granted) {
@@ -209,7 +254,8 @@ export default function ActiveScreen() {
     );
   }
 
-  return (
+ return (
+  <>
     <LinearGradient
       colors={['#0F172A', '#1E293B', '#334155']}
       style={styles.container}
@@ -217,7 +263,12 @@ export default function ActiveScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Active Walk</Text>
         <View style={styles.statusIndicator}>
-          <View style={[styles.statusDot, { backgroundColor: isWalking ? '#22C55E' : '#F59E0B' }]} />
+          <View
+            style={[
+              styles.statusDot,
+              { backgroundColor: isWalking ? '#22C55E' : '#F59E0B' },
+            ]}
+          />
           <Text style={styles.statusText}>
             {isWalking ? 'Walking' : walkData ? 'Paused' : 'Ready'}
           </Text>
@@ -230,12 +281,12 @@ export default function ActiveScreen() {
             <Text style={styles.statValue}>{walkData.distance.toFixed(2)}</Text>
             <Text style={styles.statLabel}>km</Text>
           </View>
-          
+
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{formatDuration(walkData.duration)}</Text>
             <Text style={styles.statLabel}>time</Text>
           </View>
-          
+
           <View style={styles.statCard}>
             <Text style={styles.statValue}>{walkData.photos.length}</Text>
             <Text style={styles.statLabel}>photos</Text>
@@ -248,14 +299,18 @@ export default function ActiveScreen() {
         <Text style={styles.mapText}>Live tracking active</Text>
         {currentLocation && (
           <Text style={styles.coordinatesText}>
-            {currentLocation.coords.latitude.toFixed(6)}, {currentLocation.coords.longitude.toFixed(6)}
+            {currentLocation.coords.latitude.toFixed(6)},{' '}
+            {currentLocation.coords.longitude.toFixed(6)}
           </Text>
         )}
       </View>
 
       <View style={styles.controlsContainer}>
         {!walkData && (
-          <TouchableOpacity style={styles.primaryButton} onPress={startWalk}>
+          <TouchableOpacity
+            style={styles.primaryButton}
+            onPress={() => setShowAddressModal(true)}
+          >
             <LinearGradient
               colors={['#22C55E', '#16A34A']}
               style={styles.buttonGradient}
@@ -268,11 +323,15 @@ export default function ActiveScreen() {
 
         {walkData && (
           <View style={styles.activeControls}>
-            <TouchableOpacity 
-              style={styles.secondaryButton} 
+            <TouchableOpacity
+              style={styles.secondaryButton}
               onPress={isWalking ? pauseWalk : startWalk}
             >
-              {isWalking ? <Pause size={24} color="white" /> : <Play size={24} color="white" />}
+              {isWalking ? (
+                <Pause size={24} color="white" />
+              ) : (
+                <Play size={24} color="white" />
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.secondaryButton} onPress={takePhoto}>
@@ -286,7 +345,51 @@ export default function ActiveScreen() {
         )}
       </View>
     </LinearGradient>
-  );
+
+    {/* 🔽 Modal */}
+<Modal visible={showAddressModal} transparent animationType="fade">
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContainer}>
+      <Text style={styles.modalTitle}>Start New Walk</Text>
+      <Text style={styles.modalText}>Enter your address to begin the walk.</Text>
+      
+      <TextInput
+        style={{
+          borderWidth: 1,
+          borderColor: '#CBD5E1',
+          borderRadius: 8,
+          padding: 10,
+          width: '100%',
+          marginBottom: 16,
+          color: '#0F172A',
+        }}
+        placeholder="Enter your address"
+        placeholderTextColor="#94A3B8"
+        value={starknetAddress}
+        onChangeText={setStarknetAddress}
+      />
+
+      <TouchableOpacity
+        style={styles.modalButton}
+        onPress={() => {
+          if (!starknetAddress.trim()) {
+            Alert.alert('Address Required', 'Please enter your address to continue.');
+            return;
+          }
+
+          setShowAddressModal(false);
+          startWalk(); // Start walk after closing modal
+        }}
+      >
+        <Text style={styles.modalButtonText}>Start Walk</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
+  </>
+);
+
 }
 
 const styles = StyleSheet.create({
@@ -448,4 +551,41 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     backgroundColor: 'white',
   },
+    modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '90%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#0F172A',
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#475569',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalButton: {
+    backgroundColor: '#16A34A',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+
 });
