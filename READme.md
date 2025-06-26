@@ -72,7 +72,7 @@ https://sepolia.starkscan.co/nft/0x02be153a2f2502c5f4f8d3d36c74275fd0c1e03244ce5
 
 You can dowload my app via link to your android emulator for testing 
 ```
-https://expo.dev/accounts/torpedopistol/projects/bolt-expo-nativewind/builds/9339c614-5c19-4fd1-91f5-e2c040d47105
+https://expo.dev/accounts/torpedopistol/projects/bolt-expo-nativewind/builds/210ecc96-02e0-46dd-a0f4-060c3ba7d18a
 
 ```
 
