@@ -26,7 +26,10 @@
       "expo-web-browser"
     ],
     "extra": {
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "ca4a1e98-342c-4f09-b103-a64b822c91e9"
+      }
     },
     "android": {
       "package": "com.torpedopistol.boltexponativewind"

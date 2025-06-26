@@ -55,7 +55,8 @@
     "react-native-webview": "13.13.5",
     "starknet": "^6.11.0",
     "stream-browserify": "^3.0.0",
-    "util": "^0.12.5"
+    "util": "^0.12.5",
+    "expo-dev-client": "~5.2.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

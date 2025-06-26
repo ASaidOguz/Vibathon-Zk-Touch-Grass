@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Platform, Linking } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Play, Pause, Square, Camera, MapPin } from 'lucide-react-native';
 import { useState, useEffect, useRef } from 'react';
@@ -185,11 +185,20 @@ const stopWalk = async () => {
         throw new Error('Failed to send walk data');
       }
 
+     const responseText = await response.text(); // Get HTML string
       Alert.alert(
-        'Walk Completed!',
-        `Distance: ${finalWalkData.distance.toFixed(2)} km\nDuration: ${Math.floor(finalWalkData.duration / 60000)} minutes`,
-        [{ text: 'OK' }]
-      );
+        'NFT Minted Successfully!',
+        `Transaction:\n${responseText.replace(/<[^>]*>/g, '')}`, // Strip <p> tags
+        [{ text: 'View on StarkScan', onPress: () => {
+          const urlMatch = responseText.match(/https?:\/\/[^<]+/);
+          if (urlMatch) {
+            const url = urlMatch[0];
+            // Open URL in browser
+            Linking.openURL(url);
+    }
+  } }]
+);
+
 
       console.log('Walk data sent successfully');
       
